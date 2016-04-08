@@ -1,5 +1,5 @@
 # lua-scripts
-Lua scripts - a very powerful means of customizing the IMPRS™ to perform advanced monitoring tasks.
+Lua scripts - a very powerful means of customizing the IMPRS™ Portal to perform advanced monitoring tasks.
 
 Vaonet has incorporated Lua into the IMPRS™ product line with the intention of giving you a very powerful means of customizing the system to perform advanced monitoring tasks not easily accomplished through existing mechanisms. Along the way, we have made a few modifications to the core Lua libraries and also extended Lua's functionality to support and access some IMPRS-specific features.
 
