@@ -434,7 +434,7 @@ function ProcessAlarm(dir,isUpper,bitRate,threshold,samplesNeeded)
         if map_if:Exists(g_mapKeyPrefix..keyPrefix.."CurSample") then 
             curSample = tonumber(map_if:Get(g_mapKeyPrefix..keyPrefix.."CurSample"))+1
         end
-        if curSample == samplesNeeded then
+        if samplesNeeded > 0 and curSample == samplesNeeded then
             -- we have entered the alarm state
             GenerateAlarm(keyPrefix)
             map_if:Set(g_mapKeyPrefix..keyPrefix.."InAlarm","TRUE")
@@ -559,19 +559,19 @@ if bwv ~= false then
 
             g_inUpperThreshold  = ConvertThreshold(g_inUpperThreshold,bwv.linkMaxSpeed)
             if g_inUpperThreshold > bwv.linkMaxSpeed and g_verbose == true then
-                io.write("WARNING - INCOMING UPPER THRESHOLD ("..tostring(g_inUpperThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL NEVER BREECH")
+                io.write("WARNING - INCOMING UPPER THRESHOLD ("..tostring(g_inUpperThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL NEVER BREACH")
             end
             g_inLowerThreshold  = ConvertThreshold(g_inLowerThreshold,bwv.linkMaxSpeed)
             if g_inLowerThreshold > bwv.linkMaxSpeed and g_verbose == true then
-                io.write("WARNING - INCOMING LOWER THRESHOLD ("..tostring(g_inLowerThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL ALWAYS BREECH")
+                io.write("WARNING - INCOMING LOWER THRESHOLD ("..tostring(g_inLowerThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL ALWAYS BREACH")
             end
             g_outUpperThreshold = ConvertThreshold(g_outUpperThreshold,bwv.linkMaxSpeed)
             if g_outUpperThreshold > bwv.linkMaxSpeed and g_verbose == true then
-                io.write("WARNING - OUTGOING UPPER THRESHOLD ("..tostring(g_outUpperThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL NEVER BREECH")
+                io.write("WARNING - OUTGOING UPPER THRESHOLD ("..tostring(g_outUpperThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL NEVER BREACH")
             end
             g_outLowerThreshold = ConvertThreshold(g_outLowerThreshold,bwv.linkMaxSpeed)
             if g_outLowerThreshold > bwv.linkMaxSpeed and g_verbose == true then
-                io.write("WARNING - OUTGOING LOWER THRESHOLD ("..tostring(g_outLowerThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL ALWAYS BREECH")
+                io.write("WARNING - OUTGOING LOWER THRESHOLD ("..tostring(g_outLowerThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL ALWAYS BREACH")
             end
 
             ProcessAlarm("INCOMING",true,inBitRate,g_inUpperThreshold,g_inUpperSamples)

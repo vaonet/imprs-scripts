@@ -16,13 +16,10 @@ This script stores received values and provides graphing of the data.
 
 # IMPRS Portal Version Compatibility 
 
-This script has been tested on the following versions.
+This script is compatible with the following versions.
 
-9.1 Release
-* 9.1 Update-Release 2016/07/22
-
-9.2 Release
-* 9.2-10.9
+* 9.1 Update-Release 2016/07/22 and above
+* 9.2 Release 9.2-10.9 and above
 
 # Test Parameters
 
@@ -94,4 +91,4 @@ All four archives should be selected: Average, Minimum, Maximum, and Last. Each 
 
 ## Value vs. Time
 
-This is a simple graph the plots the received OID value over time. Depending on what is being graphed, you may opt to modify some of the configuration. Out-of-the-box, the graph assumes it is graphing a *unitless* number. There will be no units shown on the graph.
+This is a simple graph that plots the received OID value over time. Depending on what is being graphed, you may opt to modify some of the configuration. Out-of-the-box, the graph assumes it is graphing a *unitless* number. There will be no units shown on the graph.

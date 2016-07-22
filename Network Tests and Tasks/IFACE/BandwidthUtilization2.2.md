@@ -8,27 +8,22 @@
 
 ## Monitoring
 
-This script monitors a numeric SNMP variable for value or range violations.
-
-The script retrieves the current value for a specified OID and determines if it should generate and alarm. It does this by using an operator to compare the received value with a lower value and possibly an upper value as well. If the comparison evaluates to true, then an alarm is generated.
+This script monitors incoming and outgoing bandwidth on an interface for upper and lower threshold violations. It does so by auto-determining the link speed of the interface (or using a provided linkspeed) and choosing the appropriate counters based on that speed - either the 32 bit low speed or 64 bit high speed counters.
 
 ## Data Collection
 
-This script stores received values and provides graphing of the data.
+This script stores the received counter values and provides several graphs of the data.
 
 # IMPRS Portal Version Compatibility 
 
-This script has been tested on the following versions.
+This script is compatible with the following versions.
 
-9.1 Release
-* 9.1 Update-Release 2016/07/22
-
-9.2 Release
-* 9.2-10.9
+* 9.1 Update-Release 2015/03/03 and above
+* 9.2 Release 9.2-6.5 and above
 
 # Test Parameters
 
-* Execution Schedule: An interval of 5 minutes is highly recommended.
+* Execution Schedule: An interval of 5 minutes is required to ensure correct calculations.
 
 ## Script Arguments
 
@@ -48,52 +43,71 @@ Port
 : The port on the equipment to send the requests to. Typically, this value is 161.
 
 Retries
-: The number of retries to make when requesting the value from the equipment. The script will fail if no response is received after all attempted retries.
+: The number of retries to make when requesting values from the equipment. The script will fail if no response is received after all attempted retries.
 
 Timeout (secs)
 : The time, in seconds, to wait for a response from the equipment. If the timeout is reached and depending on the value for *Retries*, the script will either resend the request or fail.
 
-OID to Get
-: This is the OID of the value to get. The value's type must either be: Int32, UInt32, or Gauge32, i.e. a 32 bit integral value. Also, ensure that the equipment implements the OID. If either of these are not the case, then the script will fail.
+Link Speed (bits/sec)
+: The script attempts to determine the link speed by interrogating the equipment. If you want to override this attempt, enter the value to use in bits per second.
 
-Operator
-: Specifies how to compare the received value.
-* EQUAL - If received-value is equal to lower-value, then generate an alarm.
-* NOT EQUAL - If received-value is not equal to lower-value, then generate an alarm.
-* LESS THAN - If received-value is less than lower-value, then generate an alarm.
-* LESS THAN OR EQUAL TO - If received-value is less than or equal to lower-value, then generate an alarm.
-* GREATER THAN - If received-value is greater than lower-value, then generate an alarm.
-* GREATER THAN OR EQUAL TO - If received-value is greater than or equal to lower-value, then generate an alarm.
-* BETWEEN - If received-value is greater than or equal to lower-value and less than or equal to upper-value, then generate an alarm.
-* NOT BETWEEN - If received-value is less than lower-value or greater than upper-value, then generate an alarm.
+Percentage
+: When calculating threshold violations, use either percent utilization or absolute values. If this checkbox is checked, then the subsequent threshold values should be entered as a percentage (0-100%). Otherwise enter them as values in bits per second.
 
-Lower Value
-: The value to compare against the received value. The type of comparison is specified by the *Operator*.
+Incoming Upper Threshold
+: If the incoming bandwidth rises above this threshold and stays there for the number of *Samples* given in the next field, then an alarm is generated. To disable the monitoring of this threshold, set the value to 0. If *Percentage* is checked, then the value should be between 0 and 100. If not checked, then the value should less than the link speed or an alarm will never be generated.
 
-Upper Value
-: The upper value to use when the operator is either BETWEEN or NOT BETWEEN.
+Incoming Upper Samples
+: If the incoming bandwidth stays above the upper threshold for the number of samples specified here, then an alarm is generated. To disable the monitoring of this threshold, set the value to 0.
 
-Value Label
-: When generating an alarm, this label is used to help identify the value's meaning within the alarm's summary.
+Incoming Lower Threshold
+: If the incoming bandwidth drops below this threshold and stays there for the number of *Samples* given in the next field, then an alarm is generated. To disable the monitoring of this threshold, set the value to 0. If *Percentage* is checked, then the value should be between 0 and 100. If not checked, then the value should less than the link speed or an alarm will always be generated.
+
+Incoming Lower Samples
+: If the incoming bandwidth stays below the lower threshold for the number of samples specified here, then an alarm is generated. To disable the monitoring of this threshold, set the value to 0.
+
+Outgoing Upper Threshold
+: If the outgoing bandwidth rises above this threshold and stays there for the number of *Samples* given in the next field, then an alarm is generated. To disable the monitoring of this threshold, set the value to 0. If *Percentage* is checked, then the value should be between 0 and 100. If not checked, then the value should less than the link speed or an alarm will never be generated.
+
+Outgoing Upper Samples
+: If the outgoing bandwidth stays above the upper threshold for the number of samples specified here, then an alarm is generated. To disable the monitoring of this threshold, set the value to 0.
+
+Outgoing Lower Threshold
+: If the outgoing bandwidth drops below this threshold and stays there for the number of *Samples* given in the next field, then an alarm is generated. To disable the monitoring of this threshold, set the value to 0. If *Percentage* is checked, then the value should be between 0 and 100. If not checked, then the value should less than the link speed or an alarm will always be generated.
+
+Outgoing Lower Samples
+: If the outgoing bandwidth stays below the lower threshold for the number of samples specified here, then an alarm is generated. To disable the monitoring of this threshold, set the value to 0.
 
 # Equipment to Test
 
-Ensure the equipment selected implements the OID specified in the Script Arguments. Otherwise, the script will fail when trying to retrieve the value from the equipment.
+Ensure the selected equipment implements the IF-MIB. Otherwise, the script will fail when trying to retrieve values from the equipment.
 
-You can test whether or not equipment implements the OID, by using the MIB Database Browser (Trap Database Browser in IMPRS Portal version 9.1).
+You can check whether or not equipment implements the IF-MIB by referring to the equipment's documentation or using the MIB Database Browser (Trap Database Browser in IMPRS Portal version 9.1).
 
 # Data Sources
 
-There is a single data source called *rcvdValue* that **must** be of type *GAUGE* in order for the collected values to be stored correctly. The name is referenced in the script and in graph definitions, so if it is changed here, then it must also be changed in those places.
+There are two data sources called *inOctets* and *outOctets* that **must** be of type *COUNTER* in order for the collected values to be stored correctly. The names are referenced in the script and in graph definitions, so if one is changed here, then it must also be changed in those places.
 
-You may need to set the minimum and maximum values by referring to the definition of the OID within its associated MIB. This is especially important, if the collected values can be negative - the minimum value is initially set to zero.
+The minimum and maximum values for each data source should be 0 and 18446744073709551615, respectively.
 
 # Archives
 
-All four archives should be selected: Average, Minimum, Maximum, and Last. Each archive is used in the graph definition.
+All four archives should be selected: Average, Minimum, Maximum, and Last. Each archive is used in the graph definitions.
 
 # Graphs
 
-## Value vs. Time
+## Bandwidth Utilization (In vs Out)
 
-This is a simple graph the plots the received OID value over time. Depending on what is being graphed, you may opt to modify some of the configuration. Out-of-the-box, the graph assumes it is graphing a *unitless* number. There will be no units shown on the graph.
+This graph the plots the incoming bandwidth with the outgoing bandwidth overlayed.
+
+## Bandwidth Utilization (In vs Out) with 95th
+
+Same as the above graph but also includes the 95th percentile calculation in the legend.
+
+## Bandwidth Utilization (Out vs In)
+
+This graph the plots the outgoing bandwidth with the incoming bandwidth overlayed.
+
+## Bandwidth Utilization (Out vs In) with 95th
+
+Same as the above graph but also includes the 95th percentile calculation in the legend.
