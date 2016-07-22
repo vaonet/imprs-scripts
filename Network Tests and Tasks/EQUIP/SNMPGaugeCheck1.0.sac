@@ -1,0 +1,121 @@
+{
+    "controls" : [{
+            "control" : {
+                "type" : "CFGLIST",
+                "list" : "Alarm Definition"
+            }
+        }, {
+            "control" : {
+                "type" : "CFGLIST",
+                "list" : "Severity"
+            }
+        }, {
+            "control" : {
+                "type" : "NUMBER",
+                "label" : "Notification Delay (mins)",
+                "doDefValue" : true,
+                "defValue" : "15",
+                "doMinValue" : false,
+                "doMaxValue" : false
+            }
+        }, {
+            "control" : {
+                "type" : "COMBOBOX",
+                "label" : "SNMP Version",
+                "doDefValue" : true,
+                "defValue" : "v2c",
+                "item" : "v3",
+                "choiceArray" : ["v1", "v2c"]
+            }
+        }, {
+            "control" : {
+                "type" : "NUMBER",
+                "label" : "Port",
+                "doDefValue" : true,
+                "defValue" : "161",
+                "doMinValue" : true,
+                "minValue" : "1",
+                "doMaxValue" : true,
+                "maxValue" : "65535"
+            }
+        }, {
+            "control" : {
+                "type" : "NUMBER",
+                "label" : "Retries",
+                "doDefValue" : true,
+                "defValue" : "1",
+                "doMinValue" : true,
+                "minValue" : "1",
+                "doMaxValue" : true,
+                "maxValue" : "5"
+            }
+        }, {
+            "control" : {
+                "type" : "NUMBER",
+                "label" : "Timeout (secs)",
+                "doDefValue" : true,
+                "defValue" : "1",
+                "doMinValue" : true,
+                "minValue" : "1",
+                "doMaxValue" : true,
+                "maxValue" : "10"
+            }
+        }, {
+            "control" : {
+                "type" : "TEXT",
+                "label" : "OID to Get",
+                "doDefValue" : false,
+                "doMinLength" : true,
+                "minLength" : "1",
+                "doMaxLength" : false
+            }
+        }, {
+            "control" : {
+                "type" : "NOTICE",
+                "label" : "Expected Value Type",
+                "text" : "Int32, UInt32, or Gauge32<br/><br/><hr/>Remember to adjust the Minimum and Maximum columns on the Data Sources tab to reflect the range of expected values. This is especially important if the received type is Int32, i.e. can be negative.<hr/>"
+            }
+        }, {
+            "control" : {
+                "type" : "NOTICE",
+                "label" : "Notice",
+                "text" : "If expression equates to true, then alarm is generated."
+            }
+        }, {
+            "control" : {
+                "type" : "COMBOBOX",
+                "label" : "Operator",
+                "doDefValue" : true,
+                "defValue" : "EQUAL",
+                "choiceArray" : ["EQUAL", "NOT EQUAL", "LESS THAN", "LESS THAN OR EQUAL TO", "GREATER THAN", "GREATER THAN OR EQUAL TO", "BETWEEN", "NOT BETWEEN"]
+            }
+        }, {
+            "control" : {
+                "type" : "TEXT",
+                "label" : "Lower Value",
+                "doDefValue" : false,
+                "doMinLength" : true,
+                "minLength" : "1",
+                "doMaxLength" : false
+            }
+        }, {
+            "control" : {
+                "type" : "TEXT",
+                "label" : "Upper Value",
+                "doDefValue" : false,
+                "doMinLength" : true,
+                "minLength" : "1",
+                "doMaxLength" : false
+            }
+        }, {
+            "control" : {
+                "type" : "TEXT",
+                "label" : "Value Label",
+                "doDefValue" : true,
+                "defValue" : "VALUE",
+                "doMinLength" : false,
+                "doMaxLength" : false
+            }
+        }
+    ]
+}

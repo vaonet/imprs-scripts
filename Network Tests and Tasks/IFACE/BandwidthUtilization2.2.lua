@@ -25,6 +25,7 @@ THAT IT  MAY DESCRIBE, IN WHOLE OR IN PART.
 
 --]]
 
+
 require("xml")
 require("evt")
 require("snmp")
@@ -57,25 +58,35 @@ elseif argv[3] == "v3" then
 else
     g_snmpVersion = snmp.VERSION_1
 end
-local g_port              = tonumber(argv[4])
-local g_retries           = tonumber(argv[5])
-local g_timeout           = tonumber(argv[6]) * 1000 / 10 -- convert to 10ms increments
-local g_linkSpeed         = util_if:StrToUI64(argv[7])
-local g_inUpperThreshold  = argv[8]
-local g_inUpperSamples    = tonumber(argv[9])
-local g_inLowerThreshold  = argv[10]
-local g_inLowerSamples    = tonumber(argv[11])
-local g_outUpperThreshold = argv[12]
-local g_outUpperSamples   = tonumber(argv[13])
-local g_outLowerThreshold = argv[14]
-local g_outLowerSamples   = tonumber(argv[15])
+local g_port				= tonumber(argv[4])
+local g_retries				= tonumber(argv[5])
+local g_timeout				= tonumber(argv[6]) * 1000 / 10 -- convert to 10ms increments
+local g_linkSpeed			= util_if:StrToUI64(argv[7])
+local g_calculation			= argv[8]
+local g_inUpperThreshold	= argv[9]
+local g_inUpperSamples		= tonumber(argv[10])
+local g_inLowerThreshold	= argv[11]
+local g_inLowerSamples		= tonumber(argv[12])
+local g_outUpperThreshold	= argv[13]
+local g_outUpperSamples		= tonumber(argv[14])
+local g_outLowerThreshold	= argv[15]
+local g_outLowerSamples		= tonumber(argv[16])
 
-local g_mapKeyPrefix = g_ipAddress .. g_ifIndex
+local g_iut	= g_inUpperThreshold
+local g_ilt = g_inLowerThreshold
+local g_out = g_outUpperThreshold
+local g_olt = g_outLowerThreshold
+
+local g_percentage		= ""
+local g_percentIn		= ""
+local g_percentOut		= ""
+local g_linkMaxSpeed	= ""
+local g_mapKeyPrefix	= g_ipAddress .. g_ifIndex
 
 if g_verbose == true then
 	io.write("ALARM DEFINITION: "..g_eventName,"SEVERITY: "..g_severity,"DELAY: "..g_delay,"TARGET: "..g_ipAddress,"IFACE: "..g_ifIndex,
              "COMMUNITY: "..g_readCommunity,"SNMP VER: "..g_snmpVersion,"SNMP PORT: "..g_port,"GET RETRIES: "..g_retries,
-             "GET TIMEOUT: "..g_timeout,"IN UP THRSH: "..g_inUpperThreshold,"IN UP SAMP: "..g_inUpperSamples,"IN LW THRSH: "..g_inLowerThreshold,
+             "GET TIMEOUT: "..g_timeout,"LINK SPEED: "..util_if:UI64ToStr(g_linkSpeed),"CALCULATION: "..g_calculation,"IN UP THRSH: "..g_inUpperThreshold,"IN UP SAMP: "..g_inUpperSamples,"IN LW THRSH: "..g_inLowerThreshold,
              "IN LW SAMP: "..g_inLowerSamples,"OUT UP THRSH: "..g_outUpperThreshold,"IN UP SAMP: "..g_outUpperSamples,"OUT LW THRSH: "..g_outLowerThreshold,
              "OUT LW SAMP: "..g_outLowerSamples)
 end
@@ -102,13 +113,16 @@ function Get32BitCounters(bwv)
         return false 
     end
     bwv.sysUpTime   = vbarr[0].val.uintV / 100ULL
-    bwv.ifInOctets  = vbarr[1].val.uintV
-    bwv.ifOutOctets = vbarr[2].val.uintV
+    bwv.ifInOctets  = vbarr[1].val.uintV * 1ULL
+    bwv.ifOutOctets = vbarr[2].val.uintV * 1ULL
 
     return true
 end
 
 function Get64BitCounters(bwv)
+	if map_if:Exists(g_mapKeyPrefix.."force32BitCounters") == true then 
+        return Get32BitCounters(bwv)
+    end
     snmp_if:ClearVBs()
     if g_verbose == true then
         io.write("Get high speed counters")
@@ -123,6 +137,7 @@ function Get64BitCounters(bwv)
                 if g_verbose == true then
                     io.write("High speed counters do not exist, but link speed is <= 10Gb/s - get 32Bit counters")
                 end
+                map_if:Set(g_mapKeyPrefix.."force32BitCounters","yes")
                 if Get32BitCounters(bwv) == false then 
                     return false 
                 end
@@ -142,10 +157,86 @@ function Get64BitCounters(bwv)
     return true
 end
 
+function GetPacketStats(bwv)
+    snmp_if:ClearVBs()
+    if g_verbose == true then
+        io.write("Get packet statistics")
+    end
+::_32BitPacketStats::
+    if bwv.linkMaxSpeed <= 650000000ULL or map_if:Exists(g_mapKeyPrefix.."force32BitPacketStats") == true then
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.11."..g_ifIndex) -- ifInUcastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.12."..g_ifIndex) -- ifInNUcastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.13."..g_ifIndex) -- ifInDiscards
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.12."..g_ifIndex) -- ifInErrors
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.15."..g_ifIndex) -- ifInUnknownProtos
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.17."..g_ifIndex) -- ifOutUcastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.18."..g_ifIndex) -- ifOutNUcastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.19."..g_ifIndex) -- ifOutDiscards
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.20."..g_ifIndex) -- ifOutErrors
+        vblen, vbarr = snmp_if:DoGet()
+        if snmp_if:GetError() ~= 0 then 
+            DumpSnmpError(snmp_if,"GetPacketStats("..g_ipAddress..")/32BitCounters")
+            return false 
+        else
+            bwv.inUcastPkts     = vbarr[0].val.uintV * 1ULL
+            bwv.inNUcastPkts    = vbarr[1].val.uintV * 1ULL
+            bwv.inDiscards      = vbarr[2].val.uintV * 1ULL
+            bwv.inErrors        = vbarr[3].val.uintV * 1ULL
+            bwv.inUnknownProtos = vbarr[4].val.uintV * 1ULL
+            bwv.outUcastPkts    = vbarr[5].val.uintV * 1ULL
+            bwv.outNUcastPkts   = vbarr[6].val.uintV * 1ULL
+            bwv.outDiscards     = vbarr[7].val.uintV * 1ULL
+            bwv.outErrors       = vbarr[8].val.uintV * 1ULL
+        end
+    else
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.7."..g_ifIndex) -- ifHCInUcastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.8."..g_ifIndex) -- ifHCInMulticastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.9."..g_ifIndex) -- ifHCInBroadcastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.13."..g_ifIndex) -- ifInDiscards
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.12."..g_ifIndex) -- ifInErrors
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.15."..g_ifIndex) -- ifInUnknownProtos
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.11."..g_ifIndex) -- ifHCOutUcastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.12."..g_ifIndex) -- ifHCOutMulticastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.13."..g_ifIndex) -- ifHCOutBroadcastPkts
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.19."..g_ifIndex) -- ifOutDiscards
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.20."..g_ifIndex) -- ifOutErrors
+        vblen, vbarr = snmp_if:DoGet()
+        if snmp_if:GetError() ~= 0 then 
+            if snmp_if:GetError() == 2 then
+                if bwv.linkMaxSpeed <= 10000000000ULL then
+                    if g_verbose == true then
+                        io.write("High speed packet counters do not exist, but link speed is <= 10Gb/s - get 32Bit packet counters")
+                    end
+                    map_if:Set(g_mapKeyPrefix.."force32BitPacketStats","yes")
+                    snmp_if:ClearVBs()
+                    goto _32BitPacketStats
+                else
+                    DumpError("GetPacketStats("..g_ipAddress..")","LINK SPEED TOO HIGH FOR 32BIT PACKET COUNTERS")
+                end
+            else
+                DumpSnmpError(snmp_if,"GetPacketStats("..g_ipAddress..")")
+                return false 
+            end
+        else
+            bwv.inUcastPkts     = vbarr[0].val.cntr64
+            bwv.inNUcastPkts    = vbarr[1].val.cntr64 + vbarr[2].val.cntr64
+            bwv.inDiscards      = vbarr[3].val.uintV * 1ULL
+            bwv.inErrors        = vbarr[4].val.uintV * 1ULL
+            bwv.inUnknownProtos = vbarr[5].val.uintV * 1ULL
+            bwv.outUcastPkts    = vbarr[6].val.cntr64
+            bwv.outNUcastPkts   = vbarr[7].val.cntr64 + vbarr[8].val.cntr64
+            bwv.outDiscards     = vbarr[9].val.uintV * 1ULL
+            bwv.outErrors       = vbarr[10].val.uintV * 1ULL
+        end
+    end
+
+    return true
+end
+
 function GetBandwidthVars()
 
     local vblen,vbarr
-    local bwv = {sysUpTime,linkMaxSpeed,ifInOctets,ifOutOctets}
+    local bwv = {sysUpTime,linkMaxSpeed,ifInOctets,ifOutOctets,inUcastPkts,inNUcastPkts,inDiscards,inErrors,inUnknownProtos,outUcastPkts,outNUcastPkts,outDiscards,outErrors,range}
 
     snmp_if:MakeGet(g_ipAddress,g_snmpVersion,g_readCommunity,g_port,g_retries,g_timeout)
     if snmp_if:GetError() ~= 0 then 
@@ -183,7 +274,8 @@ function GetBandwidthVars()
             else
                 bwv.linkMaxSpeed = vbarr[0].val.uintV * 1ULL
             end
-            map_if:Set(g_mapKeyPrefix.."ifSpeed",tostring(bwv.linkMaxSpeed))
+            map_if:Set(g_mapKeyPrefix.."ifSpeed",util_if:UI64ToStr(bwv.linkMaxSpeed))
+            io.write("ifSpeed is "..util_if:UI64ToStr(bwv.linkMaxSpeed))
         end
 	end
 
@@ -194,19 +286,29 @@ function GetBandwidthVars()
         if Get32BitCounters(bwv) == false then 
             return false 
         end
+        bwv.range = 0xFFFFFFFF
     else
         if Get64BitCounters(bwv) == false then
             return false
         end
+        if map_if:Exists(g_mapKeyPrefix.."force32BitCounters") == true then 
+            bwv.range = 0xFFFFFFFFULL
+        else
+            bwv.range = 0xFFFFFFFFFFFFFFFFULL
+        end
     end
+
+    --GetPacketStats(bwv)
 
     return bwv
 end
 
 function ConvertThreshold(threshold,speed)
-    local factor = threshold:match("(%d+)%%")
-    if factor ~= nil then    
-        threshold = util_if:StrToUI64(factor) / 100ULL * speed
+    if g_calculation == "true" then    
+        -- convert everything to native number (double) to perform calculation
+        threshold = tonumber(threshold) / 100.0 * tonumber(speed)
+        -- convert (back) to unsigned 64 bit integer
+        threshold = math.floor(threshold) * 1ULL
     else
         threshold = util_if:StrToUI64(threshold)
     end
@@ -247,14 +349,14 @@ function GetIfInfo()
 end
 
 function GenerateAlarm(keyPrefix)
-    xml_if:SetCurrent(xml.CONTEXT_CFG,nil)
-    xml_if:SetCurrent(xml.CONTEXT_DATA,nil)
-    local extendedInfo = ""
-    local summary = ""
+    if g_eventName == "NONE" then
+        return
+	end
+    local extendedInfo, summary, equipName, layerTags, location
     if GetIfInfo() == true then
-        summary = keyPrefix.." LINK UTILIZATION THRESHOLD BREACHED FOR "..map_if:Get(g_mapKeyPrefix.."ifName").." ("..g_ipAddress..":"..g_ifIndex..")"
+        summary = keyPrefix.." threshold exceed. "..map_if:Get(g_mapKeyPrefix.."ifName").." ("..g_ipAddress..":"..g_ifIndex..")"
         extendedInfo = 
-            "ADDRESS: "     ..g_ipAddress.."<br/>"..
+    		"ADDRESS: "     ..g_ipAddress.."<br/>"..
             "IFACE: "       ..g_ifIndex.."<br/>"..
             "NAME: "        ..map_if:Get(g_mapKeyPrefix.."ifName").."<br/>"..
             "ALIAS: "       ..map_if:Get(g_mapKeyPrefix.."ifAlias").."<br/>"..
@@ -262,32 +364,56 @@ function GenerateAlarm(keyPrefix)
             "TYPE: "        ..map_if:Get(g_mapKeyPrefix.."ifType").."<br/>"..
             "MAC: "         ..map_if:Get(g_mapKeyPrefix.."ifPhysAddress")
     else
-        summary = keyPrefix.." LINK UTILIZATION THRESHOLD BREACHED FOR ("..g_ipAddress..":"..g_ifIndex..")"
+        summary = keyPrefix.." threshold exceed. ("..g_ipAddress..":"..g_ifIndex..")"
         extendedInfo = 
             "IP ADDRESS:"  ..g_ipAddress.."<br/>"..
             "INTERFACE:"   ..g_ifIndex
     end
+
+    -- provide additional alarm summary details
+    if string.find(keyPrefix,"INCOMING") then
+		if string.find(keyPrefix,"LOWER") then
+        	g_percentage = g_percentIn.."<br/>Lower Incoming Threshold: "..g_ilt
+        elseif string.find(keyPrefix,"UPPER") then
+            g_percentage = g_percentIn.."<br/>Upper Incoming Threshold: "..g_iut
+        end
+	elseif string.find(keyPrefix,"OUTGOING") then
+		if string.find(keyPrefix,"LOWER") then
+        	g_percentage = g_percentOut.."<br/>Lower Outgoing Threshold: "..g_olt
+        elseif string.find(keyPrefix,"UPPER") then
+            g_percentage = g_percentOut.."<br/>Upper Outgoing Threshold: "..g_out
+        end
+	end
+    
+    xml_if:SetCurrent(xml.CONTEXT_DATA,nil)
+    layerTags = xml_if:FindGetData("/data/equipment/layerTags")
+    location  = xml_if:FindGetData("/data/equipment/location")
+    equipName = xml_if:FindGetData("/data/equipment/name")
+    
     evt_if:Fire(
-        xml_if:FindGetData("/data/equipment/name"),
-        g_eventName,
-        g_severity,
-        summary,
-        extendedInfo,
-        g_delay*60,
-        keyPrefix..g_ipAddress..tostring(g_ifIndex),
-        map_if:Get(g_mapKeyPrefix.."ifName"),
-        map_if:Get(g_mapKeyPrefix.."ifAlias"),
-        map_if:Get(g_mapKeyPrefix.."ifPhysAddress"),
-        xml_if:FindGetData("/data/equipment/location"),
-        xml_if:FindGetData("/data/equipment/layerTags")
-    )
+       	equipName,
+       	g_eventName,
+       	g_severity,
+       	summary.."<br/>"..g_percentage.."<br/>".."Max Link Speed: "..g_linkMaxSpeed,
+       	extendedInfo.."<br/>"..g_percentage,
+       	g_delay*60,
+       	keyPrefix..g_ipAddress..tostring(g_ifIndex),
+       	map_if:Get(g_mapKeyPrefix.."ifName"),
+       	map_if:Get(g_mapKeyPrefix.."ifAlias"),
+       	map_if:Get(g_mapKeyPrefix.."ifPhysAddress"),
+       	location,
+       	layerTags
+   	)
+	g_percentage = "" -- init
     return
 end
 
 function TransitionAlarm(keyPrefix)
+    if g_eventName == "NONE" then
+        return
+	end
     xml_if:SetCurrent(xml.CONTEXT_DATA,nil)
     evt_if:Trans(
-        "", -- altUid
         xml_if:FindGetData("/data/equipment/name"),
         keyPrefix..g_ipAddress..tostring(g_ifIndex),
         evt.aCLR
@@ -302,6 +428,7 @@ function ProcessAlarm(dir,isUpper,bitRate,threshold,samplesNeeded)
         keyPrefix = "LOWER "..dir
     end
     if (isUpper == true and bitRate > threshold) or (isUpper == false and bitRate < threshold) then
+		print("processAlarm~bitRate|threshold|"..tostring(bitRate).."|"..tostring(threshold))
         -- we are in breach
         local curSample = 1
         if map_if:Exists(g_mapKeyPrefix..keyPrefix.."CurSample") then 
@@ -325,13 +452,21 @@ function ProcessAlarm(dir,isUpper,bitRate,threshold,samplesNeeded)
 end
 
 function SaveSample(bwv)
-    map_if:Set(g_mapKeyPrefix.."sysUpTime",tostring(bwv.sysUpTime))
-    map_if:Set(g_mapKeyPrefix.."ifInOctets",tostring(bwv.ifInOctets))
-    map_if:Set(g_mapKeyPrefix.."ifOutOctets",tostring(bwv.ifOutOctets))
-    local ifInOctetsStr = util_if:UI64ToStr(bwv.ifInOctets)
-    local ifOutOctetsStr = util_if:UI64ToStr(bwv.ifOutOctets)
-    io.write("inOctets:outOctets N:"..ifInOctetsStr..":"..ifOutOctetsStr)
-    rrd_if:UpdateFromNMTest("inOctets:outOctets","N:"..ifInOctetsStr..":"..ifOutOctetsStr)
+    map_if:Set(g_mapKeyPrefix.."sysUpTime",util_if:UI64ToStr(bwv.sysUpTime))
+    map_if:Set(g_mapKeyPrefix.."ifInOctets",util_if:UI64ToStr(bwv.ifInOctets))
+    map_if:Set(g_mapKeyPrefix.."ifOutOctets",util_if:UI64ToStr(bwv.ifOutOctets))
+    rrd_if:Update("inOctets:outOctets","N:"..util_if:UI64ToStr(bwv.ifInOctets)..":"..util_if:UI64ToStr(bwv.ifOutOctets))
+    --rrd_if:Update("inOctets","N:"..util_if:UI64ToStr(bwv.ifInOctets))
+    --rrd_if:Update("outOctets","N:"..util_if:UI64ToStr(bwv.ifOutOctets))
+    --rrd_if:Update("inUcastPkts","N:"..util_if:UI64ToStr(bwv.inUcastPkts))
+    --rrd_if:Update("inNUcastPkts","N:"..util_if:UI64ToStr(bwv.inNUcastPkts))
+    --rrd_if:Update("inDiscards","N:"..util_if:UI64ToStr(bwv.inDiscards))
+    --rrd_if:Update("inErrors","N:"..util_if:UI64ToStr(bwv.inErrors))
+    --rrd_if:Update("inUnknownProtos","N:"..util_if:UI64ToStr(bwv.inUnknownProtos))
+    --rrd_if:Update("outUcastPkts","N:"..util_if:UI64ToStr(bwv.outUcastPkts))
+    --rrd_if:Update("outNUcastPkts","N:"..util_if:UI64ToStr(bwv.outNUcastPkts))
+    --rrd_if:Update("outDiscards","N:"..util_if:UI64ToStr(bwv.outDiscards))
+    --rrd_if:Update("outErrors","N:"..util_if:UI64ToStr(bwv.outErrors))
 end
 
 -- DEBUG: Dump the configuration and data contexts
@@ -340,14 +475,33 @@ end
 --xml_if:SetCurrent(xml.CONTEXT_DATA,nil)
 --io.write("Context - Data\n"..xml_if:GetDocFormatted())
 
+function WrappedDiff(last,cur,range)
+    if cur >= last then 
+        return (cur-last) 
+    else 
+        return (range - last + cur) 
+    end
+end
+
 local bwv = GetBandwidthVars()
 if bwv ~= false then
 	if g_verbose == true then
-        io.write("sysUpTime    = "..tostring(bwv.sysUpTime),
-                 "linkMaxSpeed = "..tostring(bwv.linkMaxSpeed),
-                 "ifInOctets   = "..tostring(bwv.ifInOctets),
-                 "ifOutOctets  = "..tostring(bwv.ifOutOctets))
+        io.write("sysUpTime        = "..util_if:UI64ToStr(bwv.sysUpTime),
+                 "linkMaxSpeed     = "..util_if:UI64ToStr(bwv.linkMaxSpeed),
+                 "ifInOctets       = "..util_if:UI64ToStr(bwv.ifInOctets),
+                 "ifOutOctets      = "..util_if:UI64ToStr(bwv.ifOutOctets)
+                 --"inUcastPkts      = "..util_if:UI64ToStr(bwv.inUcastPkts),
+                 --"inNUcastPkts     = "..util_if:UI64ToStr(bwv.inNUcastPkts),
+                 --"inDiscards       = "..util_if:UI64ToStr(bwv.inDiscards),
+                 --"inErrors         = "..util_if:UI64ToStr(bwv.inErrors),
+                 --"inUnknownProtos  = "..util_if:UI64ToStr(bwv.inUnknownProtos),
+                 --"outUcastPkts     = "..util_if:UI64ToStr(bwv.outUcastPkts),
+                 --"outNUcastPkts    = "..util_if:UI64ToStr(bwv.outNUcastPkts),
+                 --"outDiscards      = "..util_if:UI64ToStr(bwv.outDiscards),
+                 --"outErrors        = "..util_if:UI64ToStr(bwv.outErrors)
+        )
 	end
+	g_linkMaxSpeed = util_if:UI64ToStr(bwv.linkMaxSpeed) -- added for summary line
 
     local lastSysUpTime
 	if map_if:Exists(g_mapKeyPrefix.."sysUpTime") == false then 
@@ -360,27 +514,23 @@ if bwv ~= false then
             SaveSample(bwv)
         else
             local lastIfInOctets, lastIfOutOctets
-            if ffi.istype("uint64_t",bwv.ifInOctets) == true then
-                lastIfInOctets  = util_if:StrToUI64(map_if:Get(g_mapKeyPrefix.."ifInOctets"))
-                lastIfOutOctets = util_if:StrToUI64(map_if:Get(g_mapKeyPrefix.."ifOutOctets"))
-            else
-                lastIfInOctets  = tonumber(map_if:Get(g_mapKeyPrefix.."ifInOctets"))
-                lastIfOutOctets = tonumber(map_if:Get(g_mapKeyPrefix.."ifOutOctets"))
-            end
+            lastIfInOctets  = util_if:StrToUI64(map_if:Get(g_mapKeyPrefix.."ifInOctets"))
+            lastIfOutOctets = util_if:StrToUI64(map_if:Get(g_mapKeyPrefix.."ifOutOctets"))
 
             if g_verbose == true then
-                io.write("lastSysUpTime    = "..tostring(lastSysUpTime),
-                         "lastIfInOctets   = "..tostring(lastIfInOctets),
-                         "lastIfOutOctets  = "..tostring(lastIfOutOctets))
+                io.write("lastSysUpTime    = "..util_if:UI64ToStr(lastSysUpTime),
+                         "lastIfInOctets   = "..util_if:UI64ToStr(lastIfInOctets),
+                         "lastIfOutOctets  = "..util_if:UI64ToStr(lastIfOutOctets))
             end
 
             -- If we are here, then we have a good current sample and a good previous sample.
             SaveSample(bwv)
-            
+
             local sysUpTimeDelta,inOctetsDelta,outOctetsDelta
             sysUpTimeDelta = bwv.sysUpTime - lastSysUpTime
-            inOctetsDelta  = util_if:WrappedDiff(lastIfInOctets,bwv.ifInOctets)
-            outOctetsDelta = util_if:WrappedDiff(lastIfOutOctets,bwv.ifOutOctets)
+
+            inOctetsDelta  = WrappedDiff(lastIfInOctets,bwv.ifInOctets,bwv.range)
+            outOctetsDelta = WrappedDiff(lastIfOutOctets,bwv.ifOutOctets,bwv.range)
 
             local inBitRate   = 0
             if sysUpTimeDelta ~= 0 then inBitRate = (inOctetsDelta * 8ULL) / sysUpTimeDelta end
@@ -388,35 +538,40 @@ if bwv ~= false then
             if sysUpTimeDelta ~= 0 then outBitRate = (outOctetsDelta * 8ULL) / sysUpTimeDelta end
             local inUtilPcnt  = snmp_if:Ui64ToDbl(inBitRate) / snmp_if:Ui64ToDbl(bwv.linkMaxSpeed) * 100.0
             local outUtilPcnt = snmp_if:Ui64ToDbl(outBitRate) / snmp_if:Ui64ToDbl(bwv.linkMaxSpeed) * 100.0
-            
+
             if g_verbose == true then
-                io.write("sysUpTimeDelta = "..tostring(sysUpTimeDelta),
-                         "inOctetsDelta  = "..tostring(inOctetsDelta),
-                         "inBitRate      = "..tostring(inBitRate),
+                io.write("range          = "..util_if:UI64ToStr(bwv.range),
+                         "sysUpTimeDelta = "..util_if:UI64ToStr(sysUpTimeDelta),
+                         "inOctetsDelta  = "..util_if:UI64ToStr(inOctetsDelta),
+                         "inBitRate      = "..util_if:UI64ToStr(inBitRate),
                          "inUtilPcnt     = "..string.format("%.2f",tonumber(inUtilPcnt)).."%",
-                         "outOctetsDelta = "..tostring(outOctetsDelta),
-                         "outBitRate     = "..tostring(outBitRate),
+                         "outOctetsDelta = "..util_if:UI64ToStr(outOctetsDelta),
+                         "outBitRate     = "..util_if:UI64ToStr(outBitRate),
                          "outUtilPcnt    = "..string.format("%.2f",tonumber(outUtilPcnt)).."%")
             else
-                io.write(g_ipAddress..":"..g_ifIndex.." IN: "..tostring(inBitRate).." ("..string.format("%.2f",tonumber(inUtilPcnt)).."%)"..
-                                                      " OUT: "..tostring(outBitRate).." ("..string.format("%.2f",tonumber(outUtilPcnt)).."%)")
+                io.write(g_ipAddress..":"..g_ifIndex.." IN: "..util_if:UI64ToStr(inBitRate).." ("..string.format("%.2f",tonumber(inUtilPcnt)).."%)"..
+                                                      " OUT: "..util_if:UI64ToStr(outBitRate).." ("..string.format("%.2f",tonumber(outUtilPcnt)).."%)")
             end
+
+			-- used to add additional information to alarm summary
+            g_percentIn = "Incoming Actual: "..util_if:UI64ToStr(inBitRate).." ("..string.format("%.2f",tonumber(inUtilPcnt)).."%)"
+            g_percentOut = "Ooutgoing Actual: "..util_if:UI64ToStr(outBitRate).." ("..string.format("%.2f",tonumber(outUtilPcnt)).."%)"
 
             g_inUpperThreshold  = ConvertThreshold(g_inUpperThreshold,bwv.linkMaxSpeed)
             if g_inUpperThreshold > bwv.linkMaxSpeed and g_verbose == true then
-                io.write("WARNING - INCOMING UPPER THRESHOLD ("..tostring(g_inUpperThreshold)..") GREATER THAN LINK SPEED ("..tostring(bwv.linkMaxSpeed)..") - UTILIZATION WILL NEVER BREECH")
+                io.write("WARNING - INCOMING UPPER THRESHOLD ("..tostring(g_inUpperThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL NEVER BREECH")
             end
             g_inLowerThreshold  = ConvertThreshold(g_inLowerThreshold,bwv.linkMaxSpeed)
             if g_inLowerThreshold > bwv.linkMaxSpeed and g_verbose == true then
-                io.write("WARNING - INCOMING LOWER THRESHOLD ("..tostring(g_inLowerThreshold)..") GREATER THAN LINK SPEED ("..tostring(bwv.linkMaxSpeed)..") - UTILIZATION WILL ALWAYS BREECH")
+                io.write("WARNING - INCOMING LOWER THRESHOLD ("..tostring(g_inLowerThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL ALWAYS BREECH")
             end
             g_outUpperThreshold = ConvertThreshold(g_outUpperThreshold,bwv.linkMaxSpeed)
             if g_outUpperThreshold > bwv.linkMaxSpeed and g_verbose == true then
-                io.write("WARNING - OUTGOING UPPER THRESHOLD ("..tostring(g_outUpperThreshold)..") GREATER THAN LINK SPEED ("..tostring(bwv.linkMaxSpeed)..") - UTILIZATION WILL NEVER BREECH")
+                io.write("WARNING - OUTGOING UPPER THRESHOLD ("..tostring(g_outUpperThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL NEVER BREECH")
             end
             g_outLowerThreshold = ConvertThreshold(g_outLowerThreshold,bwv.linkMaxSpeed)
             if g_outLowerThreshold > bwv.linkMaxSpeed and g_verbose == true then
-                io.write("WARNING - OUTGOING LOWER THRESHOLD ("..tostring(g_outLowerThreshold)..") GREATER THAN LINK SPEED ("..tostring(bwv.linkMaxSpeed)..") - UTILIZATION WILL ALWAYS BREECH")
+                io.write("WARNING - OUTGOING LOWER THRESHOLD ("..tostring(g_outLowerThreshold)..") GREATER THAN LINK SPEED ("..util_if:UI64ToStr(bwv.linkMaxSpeed)..") - UTILIZATION WILL ALWAYS BREECH")
             end
 
             ProcessAlarm("INCOMING",true,inBitRate,g_inUpperThreshold,g_inUpperSamples)
