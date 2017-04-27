@@ -167,7 +167,7 @@ function GetPacketStats(bwv)
         snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.11."..g_ifIndex) -- ifInUcastPkts
         snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.12."..g_ifIndex) -- ifInNUcastPkts
         snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.13."..g_ifIndex) -- ifInDiscards
-        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.12."..g_ifIndex) -- ifInErrors
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.14."..g_ifIndex) -- ifInErrors
         snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.15."..g_ifIndex) -- ifInUnknownProtos
         snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.17."..g_ifIndex) -- ifOutUcastPkts
         snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.18."..g_ifIndex) -- ifOutNUcastPkts
@@ -193,7 +193,7 @@ function GetPacketStats(bwv)
         snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.8."..g_ifIndex) -- ifHCInMulticastPkts
         snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.9."..g_ifIndex) -- ifHCInBroadcastPkts
         snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.13."..g_ifIndex) -- ifInDiscards
-        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.12."..g_ifIndex) -- ifInErrors
+        snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.14."..g_ifIndex) -- ifInErrors
         snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.15."..g_ifIndex) -- ifInUnknownProtos
         snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.11."..g_ifIndex) -- ifHCOutUcastPkts
         snmp_if:AddVBEmpty("1.3.6.1.2.1.31.1.1.1.12."..g_ifIndex) -- ifHCOutMulticastPkts
@@ -252,7 +252,7 @@ function GetBandwidthVars()
         else
             snmp_if:AddVBEmpty("1.3.6.1.2.1.2.2.1.5."..g_ifIndex)
             if g_verbose == true then
-                io.write("Get ifSpeed")
+                io.write("Get ifSpeed for interface "..g_ifIndex)
             end
             local vblen, vbarr = snmp:DoGet()
             if snmp_if:GetError() ~= 0 then 
@@ -275,7 +275,7 @@ function GetBandwidthVars()
                 bwv.linkMaxSpeed = vbarr[0].val.uintV * 1ULL
             end
             map_if:Set(g_mapKeyPrefix.."ifSpeed",util_if:UI64ToStr(bwv.linkMaxSpeed))
-            io.write("ifSpeed is "..util_if:UI64ToStr(bwv.linkMaxSpeed))
+            io.write("ifSpeed for interface "..g_ifIndex.." is "..util_if:UI64ToStr(bwv.linkMaxSpeed))
         end
 	end
 
